@@ -49,7 +49,7 @@ college-helpdesk-chatbot/
 ⚙ Installation & Usage
 
 1. Clone the repository
-git clone https://github.com/your-username/college-helpdesk-chatbot.git
+git clone https://github.com/prakrut12/college-helpdesk-chatbot.git
 cd college-helpdesk-chatbot
 
 
