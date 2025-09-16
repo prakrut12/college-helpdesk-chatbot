@@ -5,7 +5,7 @@ import os
 import google.generativeai as genai
 
 # Configure Gemini API key
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+genai.configure(api_key=os.getenv("AIzaSyAZ9VZde3PZSxoOYKEBj5OG8_XpZCq5lYo"))
 
 st.title("🤖 College Helpdesk Chatbot")
 st.write("Ask me about timetable, faculty, or events!")
@@ -61,3 +61,4 @@ if st.button("Ask"):
             st.write(response.text)
         except Exception as e:
             st.error(f"Error: {e}")
+
