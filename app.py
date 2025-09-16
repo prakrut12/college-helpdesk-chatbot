@@ -4,8 +4,8 @@ import pandas as pd
 import google.generativeai as genai
 import time
 
-# Configure Gemini API key (from Streamlit secrets)
-genai.configure(api_key=st.secrets["AIzaSyAZ9VZde3PZSxoOYKEBj5OG8_XpZCq5lYo"])
+# Configure Gemini API key correctly
+genai.configure(api_key=st.secrets["genai"]["AIzaSyAZ9VZde3PZSxoOYKEBj5OG8_XpZCq5lYo"])
 
 st.title("🤖 College Helpdesk Chatbot")
 st.write("Ask me about timetable, faculty, or events!")
