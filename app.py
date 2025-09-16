@@ -2,9 +2,10 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import os
+import time
 import google.generativeai as genai
 
-# Configure Gemini API key
+# --- Configure Gemini API key securely ---
 genai.configure(api_key=os.getenv("AIzaSyAZ9VZde3PZSxoOYKEBj5OG8_XpZCq5lYo"))
 
 st.title("🤖 College Helpdesk Chatbot")
@@ -12,10 +13,10 @@ st.write("Ask me about timetable, faculty, or events!")
 
 user_query = st.text_input("Enter your question:")
 
-# --- Decide which table to fetch ---
+# --- Detect which table to fetch ---
 def detect_category(query):
     """Ask Gemini to classify the query into: timetable, faculty, events"""
-    model = genai.GenerativeModel("models/gemini-2.5-pro")
+    model = genai.GenerativeModel("models/gemini-1.5-flash")  # fast
     response = model.generate_content(
         f"""Classify this student query into one category: timetable, faculty, or events.
         Query: {query}
@@ -53,7 +54,7 @@ def fetch_data(category):
         return df
     return None
 
-# --- Main ---
+# --- Main chatbot flow ---
 if st.button("Ask"):
     if user_query.strip() == "":
         st.warning("⚠ Please enter a question.")
@@ -69,23 +70,33 @@ if st.button("Ask"):
                 st.subheader("📌 Relevant Info from College DB:")
                 st.dataframe(df)
 
-                # Ask Gemini to summarize
+                # --- Gemini response with typing animation ---
                 try:
-                    model = genai.GenerativeModel("models/gemini-2.5-pro")
+                    model = genai.GenerativeModel("models/gemini-1.5-flash")
                     response = model.generate_content(
                         f"""You are a helpful assistant. 
                         The student asked: {user_query}.
                         Here is the database info: {df.to_dict(orient='records')}.
-                        
-                        ✅ If timetable: give a short, day-wise summary like 
-                        'On Monday you have Math at 9AM, Physics at 11AM...'.
-                        ✅ If faculty: say which professor teaches what and how to contact them.
-                        ✅ If events: summarize upcoming events with date and location.
 
-                        Keep the answer student-friendly and short."""
+                        ✅ If timetable: give a short, day-wise summary.
+                        ✅ If faculty: say which professor teaches what and how to contact them.
+                        ✅ If events: summarize upcoming events.
+
+                        Keep the answer student-friendly and short.""",
+                        stream=True
                     )
+
                     st.subheader("🤖 Chatbot Response")
-                    st.write(response.text)
+                    placeholder = st.empty()
+                    final_text = ""
+
+                    for chunk in response:
+                        if chunk.text:
+                            for char in chunk.text:
+                                final_text += char
+                                placeholder.markdown(final_text)
+                                time.sleep(0.02)  # typing speed
+
                 except Exception as e:
                     st.error(f"Error: {e}")
             else:
