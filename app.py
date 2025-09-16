@@ -12,20 +12,6 @@ st.write("Ask me about timetable, faculty, or events!")
 
 user_query = st.text_input("Enter your question:")
 
-# --- Detect which table to fetch ---
-def detect_category(query):
-    """Ask Gemini to classify the query into: timetable, faculty, events"""
-    model = genai.GenerativeModel("models/gemini-1.5-flash")  # faster model
-    response = model.generate_content(
-        f"""Classify this student query into one category: timetable, faculty, or events.
-        Query: {query}
-        Answer with only one word: timetable OR faculty OR events."""
-    )
-    category = response.text.strip().lower()
-    if category not in ["timetable", "faculty", "events"]:
-        return None
-    return category
-
 # --- Database fetch ---
 def fetch_data(category):
     conn = sqlite3.connect("college.db")
@@ -58,43 +44,42 @@ if st.button("Ask"):
     if user_query.strip() == "":
         st.warning("⚠ Please enter a question.")
     else:
-        category = detect_category(user_query)
+        try:
+            model = genai.GenerativeModel("models/gemini-1.5-flash")
+            response = model.generate_content(
+                f"""You are a helpful college helpdesk assistant.
 
-        if category is None:
-            st.error("❌ Could not understand query. Please ask about timetable, faculty, or events.")
-        else:
-            df = fetch_data(category)
+                Student asked: {user_query}.
 
-            if df is not None and not df.empty:
-                st.subheader("📌 Relevant Info from College DB:")
-                st.dataframe(df)
+                Step 1: Classify the query into one of these: timetable, faculty, or events.
+                Step 2: Based on that category, provide a useful, short, student-friendly answer.
+                Step 3: If database info is needed, ask me (the system) which category was chosen.
 
-                # --- Gemini response with streaming output ---
-                try:
-                    model = genai.GenerativeModel("models/gemini-1.5-flash")
-                    response = model.generate_content(
-                        f"""You are a helpful assistant. 
-                        The student asked: {user_query}.
-                        Here is the database info: {df.to_dict(orient='records')}.
+                Answer format:
+                CATEGORY: <timetable/faculty/events>
+                RESPONSE: <final answer to student>"""
+            )
 
-                        ✅ If timetable: give a short, day-wise summary.
-                        ✅ If faculty: say which professor teaches what and how to contact them.
-                        ✅ If events: summarize upcoming events.
+            raw_text = response.text.strip()
+            if "CATEGORY:" in raw_text:
+                lines = raw_text.splitlines()
+                category_line = [l for l in lines if l.startswith("CATEGORY:")]
+                response_line = [l for l in lines if l.startswith("RESPONSE:")]
 
-                        Keep the answer student-friendly and short.""",
-                        stream=True
-                    )
+                category = category_line[0].replace("CATEGORY:", "").strip().lower() if category_line else None
+                answer = response_line[0].replace("RESPONSE:", "").strip() if response_line else "I’m not sure."
 
-                    st.subheader("🤖 Chatbot Response")
-                    placeholder = st.empty()
-                    final_text = ""
+                if category:
+                    df = fetch_data(category)
+                    if df is not None and not df.empty:
+                        st.subheader("📌 Relevant Info from College DB:")
+                        st.dataframe(df)
 
-                    for chunk in response:
-                        if chunk.text:
-                            final_text += chunk.text
-                            placeholder.markdown(final_text)  # fast streaming
+                st.subheader("🤖 Chatbot Response")
+                st.write(answer)
 
-                except Exception as e:
-                    st.error(f"Error: {e}")
             else:
-                st.info("No data found in the database.")
+                st.error("⚠ Could not classify query properly.")
+
+        except Exception as e:
+            st.error(f"Error: {e}")
