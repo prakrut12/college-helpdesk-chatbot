@@ -12,53 +12,81 @@ st.write("Ask me about timetable, faculty, or events!")
 
 user_query = st.text_input("Enter your question:")
 
-# Search DB and remove duplicates
-def search_database(query):
+# --- Decide which table to fetch ---
+def detect_category(query):
+    """Ask Gemini to classify the query into: timetable, faculty, events"""
+    model = genai.GenerativeModel("models/gemini-2.5-pro")
+    response = model.generate_content(
+        f"""Classify this student query into one category: timetable, faculty, or events.
+        Query: {query}
+        Answer with only one word: timetable OR faculty OR events."""
+    )
+    category = response.text.strip().lower()
+    if category not in ["timetable", "faculty", "events"]:
+        return None
+    return category
+
+# --- Database fetch ---
+def fetch_data(category):
     conn = sqlite3.connect("college.db")
     cursor = conn.cursor()
-    
-    if "timetable" in query.lower():
-        cursor.execute("SELECT DISTINCT day, subject, time FROM timetable")
+    data, columns = None, None
+
+    if category == "timetable":
+        cursor.execute("SELECT day, subject, time FROM timetable")
         data = cursor.fetchall()
         columns = ["Day", "Subject", "Time"]
-    elif "faculty" in query.lower():
-        cursor.execute("SELECT DISTINCT name, department, email FROM faculty")
+
+    elif category == "faculty":
+        cursor.execute("SELECT name, department, email FROM faculty")
         data = cursor.fetchall()
         columns = ["Name", "Department", "Email"]
-    elif "event" in query.lower():
-        cursor.execute("SELECT DISTINCT event, date, location FROM events")
+
+    elif category == "events":
+        cursor.execute("SELECT event, date, location FROM events")
         data = cursor.fetchall()
         columns = ["Event", "Date", "Location"]
-    else:
-        conn.close()
-        return None, None
-    
+
     conn.close()
-    df = pd.DataFrame(data, columns=columns)
-    return df, columns
+    if data:
+        df = pd.DataFrame(data, columns=columns)
+        return df
+    return None
 
-# Gemini model
-GEN_MODEL = "models/gemini-2.5-pro"
-
+# --- Main ---
 if st.button("Ask"):
     if user_query.strip() == "":
         st.warning("⚠️ Please enter a question.")
     else:
-        df, columns = search_database(user_query)
-        if df is not None and not df.empty:
-            st.subheader("📌 Relevant Info from College DB:")
-            st.dataframe(df)
-        else:
-            st.info("No relevant data found in the database.")
-        
-        # Generate AI response using Gemini
-        try:
-            model = genai.GenerativeModel(GEN_MODEL)
-            response = model.generate_content(
-                f"Answer the student query using this data: {df.to_dict(orient='records')}. Question: {user_query}"
-            )
-            st.subheader("🤖 Chatbot Response")
-            st.write(response.text)
-        except Exception as e:
-            st.error(f"Error: {e}")
+        category = detect_category(user_query)
 
+        if category is None:
+            st.error("❌ Could not understand query. Please ask about timetable, faculty, or events.")
+        else:
+            df = fetch_data(category)
+
+            if df is not None and not df.empty:
+                st.subheader("📌 Relevant Info from College DB:")
+                st.dataframe(df)
+
+                # Ask Gemini to summarize
+                try:
+                    model = genai.GenerativeModel("models/gemini-2.5-pro")
+                    response = model.generate_content(
+                        f"""You are a helpful assistant. 
+                        The student asked: {user_query}.
+                        Here is the database info: {df.to_dict(orient='records')}.
+                        
+                        ✅ If timetable: give a short, day-wise summary like 
+                        'On Monday you have Math at 9AM, Physics at 11AM...'.
+                        ✅ If faculty: say which professor teaches what and how to contact them.
+                        ✅ If events: summarize upcoming events with date and location.
+
+                        Keep the answer student-friendly and short."""
+                    )
+                    st.subheader("🤖 Chatbot Response")
+                    st.write(response.text)
+                except Exception as e:
+                    st.error(f"Error: {e}")
+            else:
+                st.info("No data found in the database.")
