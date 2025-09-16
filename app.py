@@ -2,7 +2,6 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import os
-import time
 import google.generativeai as genai
 
 # --- Configure Gemini API key securely ---
@@ -16,7 +15,7 @@ user_query = st.text_input("Enter your question:")
 # --- Detect which table to fetch ---
 def detect_category(query):
     """Ask Gemini to classify the query into: timetable, faculty, events"""
-    model = genai.GenerativeModel("models/gemini-1.5-flash")  # fast
+    model = genai.GenerativeModel("models/gemini-1.5-flash")  # faster model
     response = model.generate_content(
         f"""Classify this student query into one category: timetable, faculty, or events.
         Query: {query}
@@ -34,17 +33,17 @@ def fetch_data(category):
     data, columns = None, None
 
     if category == "timetable":
-        cursor.execute("SELECT day, subject, time FROM timetable")
+        cursor.execute("SELECT DISTINCT day, subject, time FROM timetable")
         data = cursor.fetchall()
         columns = ["Day", "Subject", "Time"]
 
     elif category == "faculty":
-        cursor.execute("SELECT name, department, email FROM faculty")
+        cursor.execute("SELECT DISTINCT name, department, email FROM faculty")
         data = cursor.fetchall()
         columns = ["Name", "Department", "Email"]
 
     elif category == "events":
-        cursor.execute("SELECT event, date, location FROM events")
+        cursor.execute("SELECT DISTINCT event, date, location FROM events")
         data = cursor.fetchall()
         columns = ["Event", "Date", "Location"]
 
@@ -70,7 +69,7 @@ if st.button("Ask"):
                 st.subheader("📌 Relevant Info from College DB:")
                 st.dataframe(df)
 
-                # --- Gemini response with typing animation ---
+                # --- Gemini response with streaming output ---
                 try:
                     model = genai.GenerativeModel("models/gemini-1.5-flash")
                     response = model.generate_content(
@@ -92,10 +91,8 @@ if st.button("Ask"):
 
                     for chunk in response:
                         if chunk.text:
-                            for char in chunk.text:
-                                final_text += char
-                                placeholder.markdown(final_text)
-                                time.sleep(0.02)  # typing speed
+                            final_text += chunk.text
+                            placeholder.markdown(final_text)  # fast streaming
 
                 except Exception as e:
                     st.error(f"Error: {e}")
