@@ -66,5 +66,5 @@ streamlit run app.py
 
 
 🌐 Live Demo
-https://college-appdesk-chatbot-mibdjq4u8lhbr4vvreph5l.streamlit.app/
+
 
