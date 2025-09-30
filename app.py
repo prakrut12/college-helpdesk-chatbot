@@ -4,8 +4,12 @@ import pandas as pd
 import os
 import google.generativeai as genai
 
-# Configure Gemini API key
-genai.configure(api_key=os.getenv("AIzaSyAZ9VZde3PZSxoOYKEBj5OG8_XpZCq5lYo"))
+# Configure Gemini API key from environment variable (recommended for security)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    st.error("Gemini API key not found. Please set GEMINI_API_KEY in your environment variables.")
+else:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 st.title("🤖 College Helpdesk Chatbot")
 st.write("Ask me about timetable, faculty, or events!")
@@ -14,9 +18,14 @@ user_query = st.text_input("Enter your question:")
 
 # Search DB and remove duplicates
 def search_database(query):
-    conn = sqlite3.connect("college.db")
+    db_path = "college.db"
+    if not os.path.exists(db_path):
+        st.error("Database file 'college.db' not found. Please ensure it exists in the app directory.")
+        return None, None
+
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
+
     if "timetable" in query.lower():
         cursor.execute("SELECT DISTINCT day, subject, time FROM timetable")
         data = cursor.fetchall()
@@ -32,7 +41,7 @@ def search_database(query):
     else:
         conn.close()
         return None, None
-    
+
     conn.close()
     df = pd.DataFrame(data, columns=columns)
     return df, columns
@@ -48,16 +57,19 @@ if st.button("Ask"):
         if df is not None and not df.empty:
             st.subheader("📌 Relevant Info from College DB:")
             st.dataframe(df)
+        elif df is None:
+            st.info("No relevant data found in the database, or the database is missing.")
         else:
             st.info("No relevant data found in the database.")
-        
-        # Generate AI response using Gemini
-        try:
-            model = genai.GenerativeModel(GEN_MODEL)
-            response = model.generate_content(
-                f"Answer the student query using this data: {df.to_dict(orient='records')}. Question: {user_query}"
-            )
-            st.subheader("🤖 Chatbot Response")
-            st.write(response.text)
-        except Exception as e:
-            st.error(f"Error: {e}")
+
+        # Generate AI response using Gemini only if API key is set
+        if GEMINI_API_KEY:
+            try:
+                model = genai.GenerativeModel(GEN_MODEL)
+                response = model.generate_content(
+                    f"Answer the student query using this data: {df.to_dict(orient='records') if df is not None else 'No data found.'}. Question: {user_query}"
+                )
+                st.subheader("🤖 Chatbot Response")
+                st.write(response.text)
+            except Exception as e:
+                st.error(f"Error: {e}")
