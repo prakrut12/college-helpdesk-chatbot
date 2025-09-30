@@ -5,11 +5,11 @@ import os
 import google.generativeai as genai
 
 # Configure Gemini API key from environment variable (recommended for security)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
+GOOGLE_API_KEY = os.getenv("AIzaSyAZ9VZde3PZSxoOYKEBj5OG8_XpZCq5lYo")
+if not GOOGLE_API_KEY:
     st.error("Gemini API key not found. Please set GEMINI_API_KEY in your environment variables.")
 else:
-    genai.configure(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GOOGLE_API_KEY)
 
 st.title("🤖 College Helpdesk Chatbot")
 st.write("Ask me about timetable, faculty, or events!")
@@ -73,3 +73,4 @@ if st.button("Ask"):
                 st.write(response.text)
             except Exception as e:
                 st.error(f"Error: {e}")
+
